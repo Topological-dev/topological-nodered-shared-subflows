@@ -1,0 +1,643 @@
+<script type="text/javascript">
+    let metaData = {}
+    let activeSubflow = {}
+    let baseUrl = ''
+    let subflowsData = []
+
+    let subflowIdToImport = ''
+
+    let selectedApp = ''
+    let selectedCategory = ''
+    let selectedSubflow = ''
+    let selectedVersion = ''
+    let newApp = ''
+    let newCategory = ''
+    let changes = ''
+    let hostname = ''
+
+    const resetExportForm = () => {
+        $("#node-input-export-app").val('')
+        $("#node-input-export-category").val('')
+        $('#node-input-export-app-add').val('')
+        $('#node-input-export-category-add').val('')
+        $('#node-input-export-app-add').hide()
+        $('#node-input-export-category-add').hide()
+        $('#node-input-export-subflow').val('')
+        $('#node-input-export-latest-version').val('')
+        $('#node-input-export-version').val('')
+        $('#node-export-changes-text').val('')
+    }
+
+    const resetImportForm = () => {
+        $("#node-input-import-app").val('')
+        $("#node-input-import-category").val('')
+        $("#node-input-import-subflow").val('')
+        $("#node-input-import-version").val('')
+        $('#node-import-changes-text').html('')
+    }
+
+    //Get Meta data
+    const getSubflowData = () => {
+        $.getJSON('/flow/global', (result) => {
+            subflowsData = result.subflows || []
+        })
+        .fail( (err) => {
+            RED.notify(err.message, { type: "error", timeout: 3000 })
+        })
+    }
+
+    const updateSubflowData = (subflow) => {
+        let updatedSubflowData = subflowsData
+        let searchIndex = subflowsData.findIndex( item => item.id == activeSubflow.id) //Not Found returns -1.
+
+        if(searchIndex == -1){
+                updatedSubflowData.push(subflow)
+        }
+        else{
+            updatedSubflowData[searchIndex] = subflow
+        }
+
+        let putData = {
+                id: "global",
+                subflows: updatedSubflowData
+            }
+
+        $.ajax({
+                type: 'PUT',
+                url: '/flow/global',
+                contentType: 'application/json',
+                data: JSON.stringify(putData),
+            }).done( () => {
+                RED.notify('Subflows Updated - Success', { type: "Success", timeout: 3000 })
+            }).fail( (err) => {
+                RED.notify(err.message, { type: "error", timeout: 3000 })
+            })
+
+    }
+
+    const getHostName = () => {
+        $.getJSON('/context/global/hostname?store=memory', (result) => {
+            hostname = result.msg //Set global variable hostname:require('os').hostname() in settings.js or in node-red code.
+            $('#node-input-export-hostname').val(hostname)
+        })
+
+    }
+
+    const getData = () => {
+        $("#node-input-export-app").html(`<option value="">Select</option>`)
+        $("#node-input-import-app").html(`<option value="">Select</option>`)
+        $.getJSON(`${baseUrl}/activesubflows`, (result) => {
+            metaData = result
+            Object.keys(result).forEach(item => {
+                $("#node-input-import-app").append(`<option value="${item}">${item.substr(0, 1).toUpperCase()}${item.substr(1)}</option>`)
+                $("#node-input-export-app").append(`<option value="${item}">${item.substr(0, 1).toUpperCase()}${item.substr(1)}</option>`)
+            })
+            $("#node-input-export-app").append(`<option value="new">Add New ...</option>`)
+            let date = new Date()
+            $('#lastUpdate').html(`${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getDate().toString().padStart(2, '0')}/${date.getFullYear()} ${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}:${date.getSeconds().toString().padStart(2, '0')}`)
+        })            
+    }
+
+    const getHealth = () => {
+        baseUrl = $('#node-config-input-baseUrl').val()
+        $.getJSON(`${baseUrl}/health`)
+        .done(() => {
+            RED.notify('Connection Success', { type: "success", timeout: 2000 })
+        })
+        .fail((err) => {
+            RED.notify('Set the Base URL correctly', { type: "error", timeout: 2000 })
+        })
+    }
+    
+    const setBaseUrl = () => {
+        let val = $('#node-config-input-baseUrl').val()
+        localStorage.setItem('baseUrl', val)
+
+        getHealth()
+        getData()
+    }
+
+    RED.events.on('workspace:change', (changes) => {
+        let activeWorkspaceId = RED.workspaces.active()
+        var isSubflow = RED.nodes.workspace(activeWorkspaceId) //returns only flows types
+        if (!isSubflow) {
+            // this is probably a subflow
+            activeSubflow = RED.nodes.subflow(activeWorkspaceId)
+            $('#node-input-export-subflow').val(activeSubflow.name)
+            $('#node-input-import-local-version').val(activeSubflow.meta.version || 'No Local Version')
+            $('#node-input-export-local-version').val(activeSubflow.meta.version || 'No Local Version')
+            getSubflowData()
+            getData()
+        }
+        else {
+            $('#node-input-export-subflow').val('')
+        }
+    })
+
+    RED.events.on('subflows:change', (subflow) => {
+        activeSubflow = subflow
+        $('#node-input-export-subflow').val(activeSubflow.name)
+        $('#node-input-import-local-version').val(activeSubflow.meta.version || 'No Local Version')
+        $('#node-input-export-local-version').val(activeSubflow.meta.version || 'No Local Version')
+        getSubflowData()
+        getData()
+    })
+
+    const loadCategories = (selector) => {
+        RED.notify('Deploy all changed before Import/Export', { type: "warning", timeout: 2000 })
+        selectedApp = $(selector).val()
+        if (selectedApp) {
+            getSubflowData()
+            if (selector == '#node-input-import-app') {
+                $("#node-input-import-category").html(`<option value="">Select</option>`)
+                $("#node-input-import-subflow").html(`<option value="">Select</option>`)
+                $("#node-input-import-version").html(`<option value="">Select</option>`)
+                $('#node-import-changes-text').html('')
+                Object.keys(metaData[selectedApp]).forEach(item => {
+                    $("#node-input-import-category").append(`<option value="${item}">${item.substr(0, 1).toUpperCase()}${item.substr(1)}</option>`)
+                })
+            }
+            else {
+                $('#node-input-export-latest-version').val('')
+                $("#node-input-export-category").html(`<option value="">Select</option>`)
+                if (selectedApp !== 'new') {
+                    Object.keys(metaData[selectedApp]).forEach(item => {
+                        $("#node-input-export-category").append(`<option value="${item}">${item.substr(0, 1).toUpperCase()}${item.substr(1)}</option>`)
+                    })
+                    $("#node-input-export-category").append(`<option value="new">Add New ...</option>`)
+                    $("#node-input-export-app-add").hide()
+                    $("#node-input-export-category-add").hide()
+                }
+                else {
+                    selectedCategory = 'new'
+                    $("#node-input-export-category").append(`<option value="new">Add New ...</option>`)
+                    $("#node-input-export-app-add").show()
+                    $("#node-input-export-category-add").show()
+                    $("#node-input-export-category").val('new')
+                }
+
+            }
+        }
+        else {
+            RED.notify('Select "App"', { type: "error", timeout: 2000 })
+        }
+
+    }
+
+    const loadSubflows = () => {
+        selectedCategory = $("#node-input-import-category").val()
+        if (selectedApp !== '' && selectedCategory !== '') {
+            $("#node-input-import-subflow").html(`<option value="">Select</option>`)
+            $("#node-input-import-version").html(`<option value="">Select</option>`)
+            $('#node-import-changes-text').html('')
+            Object.keys(metaData[selectedApp][selectedCategory]).forEach(item => {
+                $("#node-input-import-subflow").append(`<option value="${item}">${item.substr(0, 1).toUpperCase()}${item.substr(1)}</option>`)
+            })
+        }
+        else {
+            RED.notify('Select "App" & "Category"', { type: "error", timeout: 2000 })
+        }
+    }
+
+    const loadVersions = () => {
+        selectedSubflow = $("#node-input-import-subflow").val()
+        if (selectedApp !== '' && selectedCategory !== '' && selectedSubflow !== '') {
+            $("#node-input-import-version").html(`<option value="">Select</option>`)
+            $('#node-import-changes-text').text('')
+            //find local version
+            metaData[selectedApp][selectedCategory][selectedSubflow].forEach(item => {
+                $("#node-input-import-version").append(`<option value="${item.version}">${item.version}</option>`)
+            })
+        }
+        else {
+            RED.notify('Select "App" & "Category" & "Subflow"', { type: "error", timeout: 2000 })
+        }
+    }
+
+    const loadChanges = () => {
+        selectedVersion = $("#node-input-import-version").val()
+
+        if (selectedApp !== '' && selectedCategory !== '' && selectedSubflow !== '' && selectedVersion !== '') {
+            let filteredVersion = metaData[selectedApp][selectedCategory][selectedSubflow].filter(item => item.version == selectedVersion)[0]
+            let changeTxt = filteredVersion && filteredVersion.changes || ''
+            let formatedTxt = changeTxt.replace(/(https?:\/\/[^\s]+)/g, '<a style="color:blue;text-decoration: underline;" href="$1">$1</a>')
+            $('#node-import-changes-text').html(`<pre>${formatedTxt}</pre>`)
+
+            subflowIdToImport = filteredVersion && filteredVersion.subflowId
+        }
+        else {
+            RED.notify('Select "App" & "Category" & "Subflow" & "Version"', { type: "error", timeout: 2000 })
+        }
+    }
+
+    //placeholder
+    const importValidations = () => {
+
+        // if(typeof activeSubflow.type == 'undefined'){
+        //     return { isValid: false, message: 'Open valid subflow first' }
+        // }
+
+        return { isValid: true, message: '' }
+    }
+
+    const onImport = () => {
+        let { isValid, message } = importValidations()
+
+        try{
+            if(isValid){
+                //Get the subflow based on the id
+                $.getJSON(`${baseUrl}/subflows/${subflowIdToImport}`, (result) => {
+                    let subflow = JSON.parse(result.subflow)
+                    //Get all local subflows
+                    getSubflowData()
+                    //update the subflow locally with the meta data for the active subflow.
+                    updateSubflowData(subflow)
+                    RED.notify(`Successfully Imported`, { type: "success", timeout: 5000 })
+                    //Reset all the values
+                    resetImportForm()
+                    //Get all the meta data after posting the data
+                    getData()
+                })
+                .fail((err) => {
+                    RED.notify(`Error: ${err.responseJSON.message}`, { type: "error", timeout: 5000 })
+                })
+            }
+            else{
+                RED.notify(message, { type: "error", timeout: 3000 })
+            }
+        }
+        catch(err){
+            RED.notify(err.message, { type: "error", timeout: 3000 })
+        }
+    }
+
+    //Export tab related functions.
+    const validateNewCategory = () => {
+        selectedCategory = $("#node-input-export-category").val()
+        $('#node-input-export-latest-version').val('')
+        if (selectedApp) {
+            if (selectedCategory !== 'new') {
+                $("#node-input-export-category-add").hide()
+            }
+            else {
+                $("#node-input-export-category-add").show()
+            }
+        }
+        else {
+            RED.notify('Select "App"', { type: "error", timeout: 2000 })
+        }
+    }
+
+    const addNewApp = () => {
+        newApp = $('#node-input-export-app-add').val()
+    }
+
+    const addNewCategory = () => {
+        newCategory = $('#node-input-export-category-add').val()
+    }
+
+    const getLatestVersion = () => {
+       
+        if (selectedApp && selectedCategory && selectedApp !== 'new' && selectedCategory !== 'new') {
+            let subflow_versions = metaData[selectedApp][selectedCategory][activeSubflow.name]
+            if(typeof subflow_versions == 'undefined'){
+                RED.notify('No Matching Subflow Found', { type: "compact", timeout: 2000 })
+            }
+            else{
+                let _latestVersion = subflow_versions && subflow_versions[subflow_versions.length - 1]//get the last element
+                $('#node-input-export-latest-version').val((_latestVersion && _latestVersion.version) || '')
+            }
+        }
+        else {
+            let message = ''
+            if (selectedApp == 'new') {
+                RED.notify('New "App" does not have latest versions', { type: "compact", timeout: 2000 })
+            }
+            else if (selectedCategory == 'new') {
+                RED.notify('New "Category" does not have latest versions', { type: "compact", timeout: 2000 })
+            }
+            else {
+                RED.notify('Select "App" & "Category"', { type: "error", timeout: 2000 })
+            }
+        }
+    }
+
+    // const verifyLatestVersion = () => {
+    //     let latestVersion = $('#node-input-export-latest-version').val()
+    //     if(selectedApp && selectedCategory && selectedApp !== 'new' && selectedCategory !== 'new'){
+    //         if (!latestVersion) {
+    //             RED.notify('Get the latest version first', { type: "error", timeout: 2000 })
+    //         }
+    //     }
+    // }
+
+    const validateVersion = () => {
+        let isValid = true
+        selectedVersion = $('#node-input-export-version').val()
+        let latestVersion = $('#node-input-export-latest-version').val()
+        let values = selectedVersion.split('.').map(item => parseInt(item))
+        let _errmsg = 'Should be greater than the latest version'
+        if(!selectedApp || !selectedCategory){
+            RED.notify('Select "App" and "Category"', { type: "error", timeout: 2000 })
+        }
+        else if (values.length != 3 || isNaN(values[2])) {
+            isValid = false
+            _errmsg = 'Invalid semantic versioning'
+        }
+        else if(latestVersion){
+            let _latest_version = latestVersion.split('.').map(item => parseInt(item)) //Get all the numeric values in an array
+            switch (true) {
+                case values[0] > _latest_version[0]:
+                    isValid = true
+                    break
+                case values[0] === _latest_version[0] && values[1] > _latest_version[1]:
+                    isValid = true
+                    break
+                case values[0] === _latest_version[0] && values[1] === _latest_version[1] && values[2] > _latest_version[2]:
+                    isValid = true
+                    break
+                case values[0] === _latest_version[0] && values[1] === _latest_version[1] && values[2] === _latest_version[2]:
+                    isValid = false
+                    break
+                default:
+                    isValid = false
+            }
+        }
+
+        if (!isValid) {
+            $('#node-input-export-version').val('')
+            RED.notify(_errmsg, { type: "error", timeout: 2000 })
+        }
+
+    }
+
+    const setChanges = () => {
+        changes = $('#node-export-changes-text').val()
+    }
+
+    const exportValidations = () => {
+        //let latestVersion = $('#node-input-export-latest-version').val()
+        //let localVersion = $('#node-input-export-local-version').val()
+
+        if(typeof activeSubflow.type == 'undefined'){
+            return { isValid: false, message: 'Open valid subflow first' }
+        }
+        if (!selectedApp) {
+            return { isValid: false, message: 'Select "App"' }
+        }
+        if (!selectedCategory) {
+            return { isValid: false, message: 'Select "Category"' }
+        }
+        if (selectedApp == 'new' && !newApp) {
+            return { isValid: false, message: '"App" is required' }
+        }
+        if (selectedCategory == 'new' && !newCategory) {
+            return { isValid: false, message: '"Category" is required' }
+        }
+        if (!selectedVersion) {
+            return { isValid: false, message: '"Version" is required' }
+        }
+        if (!selectedVersion) {
+            return { isValid: false, message: '"Version" is required' }
+        }
+        // if (localVersion !== 'No Local Version' && latestVersion !== localVersion) {
+        //     return { isValid: false, message: 'Import latest version before export' }
+        // }
+        if (!changes || changes < 40) {
+            return { isValid: false, message: '"changes" is required. Needs at least 40 chars.' }
+        }
+
+        return { isValid: true, message: '' }
+    }
+
+    const onExport = () => {
+        let { isValid, message } = exportValidations()
+        try{
+            if (isValid) {
+                let app = selectedApp && selectedApp !== 'new' ? selectedApp : newApp
+                let category = selectedCategory && selectedCategory !== 'new' ? selectedCategory : newCategory
+                
+                let searchIndex = subflowsData.findIndex( item => item.id == activeSubflow.id) //Not Found returns -1. But it never returns -1.
+                
+                let activeSubflowData = subflowsData[searchIndex]
+
+                activeSubflowData.meta = activeSubflowData.meta || {}
+                activeSubflowData.meta.version = selectedVersion
+                activeSubflowData.meta.desc = `App: ${app}, Category: ${category}`
+
+                activeSubflowStr = JSON.stringify(activeSubflowData)
+
+                const data = {
+                    app: app,
+                    category: category,
+                    subflow: activeSubflow.name,
+                    version: selectedVersion,
+                    hostName: hostname,
+                    json: activeSubflowStr,
+                    changes: changes
+                }
+                
+                $.post(`${baseUrl}/subflows`, data)
+                    .done((data, statusText, xhr) => {
+                            RED.notify('Successfully Updated', { type: "success", timeout: 3000 })
+                            //Reset all the values
+                            resetExportForm()
+                            //Get all the meta data after posting the data
+                            getData()
+                            //update the subflow locally with the meta data for the active subflow.
+                            updateSubflowData(activeSubflowData)
+                    })
+                    .fail((err) => {
+                        RED.notify(`Error: ${err.responseJSON.message}`, { type: "error", timeout: 5000 })
+                    })
+            
+            }
+            else {
+                RED.notify(message, { type: "error", timeout: 3000 })
+            }
+        }
+        catch(err){
+            RED.notify(err.message, { type: "error", timeout: 3000 })
+        }
+    }
+
+    $(document).ready(() => {
+        let baseUrl = localStorage.getItem('baseUrl')
+        if (baseUrl && baseUrl != null) {
+            $('#node-config-input-baseUrl').val(baseUrl)
+        }
+
+        $('#node-input-export-app-add').hide()
+        $('#node-input-export-category-add').hide()
+
+        $('.red-ui-tab').each( () => $(this).click() )
+
+        resetExportForm()
+        resetImportForm()
+        getHealth()
+        getHostName()
+    })
+
+    RED.nodes.registerType('shared-subflows', {
+        category: 'config',
+        color: 'rgb(153, 153, 153)',
+        defaults: {
+            name: { value: "" },
+            hostname: { value: "sample" },
+        },
+        inputs: 0,
+        outputs: 0,
+        icon: "font-awesome/fa-share-alt",
+        align: 'left',
+        paletteLabel: "Shared Subflows",
+        label: function () {
+            return this.name || "shared-subflows"
+        },
+        onpaletteremove: function () {
+            RED.sidebar.removeTab("shared-subflows")
+        },
+        onpaletteadd: function () {
+            var that = this
+            var content = $($('script[type="text/x-red"][data-template-name="shared-subflows"]').i18n().html());
+
+            RED.sidebar.addTab({
+                id: "shared-subflows",
+                label: "Shared Subflows",
+                name: "shared-subflows",
+                content: content,
+                closeable: true,
+                disableOnEdit: true,
+                iconClass: "fa fa-share-alt"
+            })
+
+            var tabs = RED.tabs.create({
+                id: "shared-subflows-tabs",
+                onchange: function (tab) {
+                    $("#tabs-content").children().hide();
+                    $("#" + tab.id).show();
+                }
+            });
+            tabs.addTab({
+                id: "tab-import",
+                label: that._("Import")
+            });
+            tabs.addTab({
+                id: "tab-export",
+                label: that._("Export")
+            });
+            tabs.activateTab("tab-import");
+
+            // this.exportchanges = RED.editor.createEditor({
+            //     id: 'node-export-changes-text',
+            //     mode: 'ace/mode/text',
+            //     value: ''
+            // });
+
+            $('.red-ui-tab').css('min-width', '200px')
+            $('.custom-button').css('background-color', 'var(--red-ui-deploy-button-background)').css('border-radius', '7px').css('font-size', '14px').css('min-height', '35px').css('min-width', '35px').css('margin-bottom', '7px')
+        }
+    })
+
+</script>
+<script type="text/x-red" data-template-name="shared-subflows">
+    <div style="width: 90%; margin-left: 5%;margin-top: 5%;" >
+        <div class="form-row">
+            <label for="node-config-input-baseUrl"><i class="fa fa-list"></i> BaseURL</label>
+            <input type="text" id="node-config-input-baseUrl" onblur="setBaseUrl()" >
+        </div>
+       <!-- <div class="form-row">
+            <button type="button" class="red-ui-button" onclick="getData()" ><i class="fa fa-refresh"></i></button>
+            <span id="lastUpdate" style="color: green; margin-left: 10px;"></span>
+        </div> -->
+    </div>
+
+    <div class="form-row">
+        <ul id="shared-subflows-tabs"></ul>
+    </div>
+
+    <div id="tabs-content">
+        <div id="tab-import" style="display:none;">
+            <div style="width: 90%; margin-left: 5%;" >
+                <div class="form-row">
+                    <label for="node-input-import-app"><i class="fa fa-rocket"></i> App</label>
+                    <select id="node-input-import-app" style="min-width: 70%" onchange="loadCategories('#node-input-import-app')">
+                        <option value="">Select</option>
+                    </select>
+                </div>
+                <div class="form-row">
+                    <label for="node-input-import-category"><i class="fa fa-folder-open" ></i> Category</label>
+                    <select id="node-input-import-category" style="min-width: 70%" onchange="loadSubflows()">
+                        <option value="">Select</option>
+                    </select>
+                </div>
+                <div class="form-row">
+                    <label for="node-input-import-subflow"><i class="fa fa-sitemap" ></i> Subflow</label>
+                    <select id="node-input-import-subflow" style="min-width: 70%" onchange="loadVersions()">
+                        <option value="">Select</option>
+                    </select>
+                </div>
+                <div class="form-row">
+                    <label for="node-input-import-local-version"><i class="fa fa-code-fork"></i> Local Version</label>
+                    <input type="text" id="node-input-import-local-version" readOnly>
+                </div>
+                <div class="form-row">
+                    <label for="node-input-import-version"><i class="fa fa-code-fork"  ></i> Remote Version</label>
+                    <select  id="node-input-import-version" style="min-width: 70%" onchange="loadChanges()" >
+                        <option value="">Select</option>
+                    </select>
+                </div>
+                <div>
+                    <label><i class="fa fa-history" aria-hidden="true"></i> Remote Changes</label>
+                    <div style="height: 100px; overflow: auto; border: 1px solid lightgray; border-radius: 7px; min-width: 90%; margin: auto;" id="node-import-changes-text" rows="5" cols="50" readOnly></div>
+                </div>
+                <button type="button" class="red-ui-button custom-button" style="margin-top: 20px;" onclick="onImport()">Import</button>
+            </div>
+        </div>
+
+        <div id="tab-export" style="display:none;">
+            <div style="width: 90%; margin-left: 5%;" >
+                <div class="form-row">
+                    <label for="node-input-export-app"><i class="fa fa-rocket"></i> App</label>
+                    <select  id="node-input-export-app" style="min-width: 70%" onchange="loadCategories('#node-input-export-app')" >
+                        <option value="">Select</option>
+                    </select>
+                    <input type="text" id="node-input-export-app-add" style="margin-left: 105px" placeholder="Add new App" onblur="addNewApp()">
+                </div>
+                <div class="form-row">
+                    <label for="node-input-export-category"><i class="fa fa-folder-open"></i> Category</label>
+                    <select  id="node-input-export-category" style="min-width: 70%" onchange="validateNewCategory()">
+                        <option value="">Select</option>
+                    </select>
+                    <input type="text" id="node-input-export-category-add"  style="margin-left: 105px" placeholder="Add new Category" onblur="addNewCategory()" >
+                </div>
+                <div class="form-row">
+                    <label for="node-input-export-subflow"><i class="fa fa-sitemap"></i> Subflow</label>
+                    <input type="text" id="node-input-export-subflow" placeholder="Active subflow" readOnly>
+                </div>
+                <div class="form-row">
+                    <label for="node-input-export-latest-version"><i class="fa fa-code-fork"></i> Latest Remote Version</label>
+                    <input type="text" id="node-input-export-latest-version" readOnly placeholder="Latest Version">
+                </div>
+                <div class="form-row">
+                    <label for="node-input-export-local-version"><i class="fa fa-code-fork"></i> Local Version</label>
+                    <input type="text" id="node-input-export-local-version" readOnly>
+                </div>
+                <div class="form-row">
+                    <label for="node-input-export-version"><i class="fa fa-code-fork"></i> Version</label>
+                    <input type="text" id="node-input-export-version" onblur="validateVersion()" placeholder="0.1.0" onclick="getLatestVersion()">
+                </div>
+                <div class="form-row" hidden>
+                    <label for="node-input-export-hostname"><i class="fa fa-user"></i> Hostname</label>
+                    <input type="text" id="node-input-export-hostname" readOnly >
+                </div>
+                <div>
+                    <label><i class="fa fa-history" aria-hidden="true"></i> Changes (40 chars minimum)</label>
+                    <textarea style="height: 100px; overflow: auto; border: 1px solid lightgray; border-radius: 7px; min-width: 90%; margin: auto;" 
+                    class="node-text-editor" id="node-export-changes-text" rows="5" onblur="setChanges()" ></textarea>
+                </div>
+                <button type="button" class="red-ui-button custom-button" style="margin-top: 20px;" onclick="onExport()" >Export</button>
+            </div>
+        </div>
+    </div>
+</script>
+<script type="text/html" data-help-name="shared-subflows"></script>

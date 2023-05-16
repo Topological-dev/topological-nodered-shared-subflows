@@ -1,0 +1,23 @@
+{
+  "name": "topological-nodered-shared-subflows",
+  "version": "0.1.0",
+  "description": "node-red side tab to share subflow foe teams to collaborate.",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "chandrakanth chintada",
+  "license": "ISC",
+  "keywords": [
+    "node-red",
+    "shared subflows"
+  ],
+  "node-red": {
+    "version": ">=3.0.0",
+    "nodes": {
+      "shared-subflows": "nodes/shared-subflows.js"
+    }
+  },
+  "dependencies": {
+    "mysql2": "^2.3.3"
+  }
+}

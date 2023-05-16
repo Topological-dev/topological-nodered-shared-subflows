@@ -1,0 +1,542 @@
+[
+    {
+        "id": "96926d3472090980",
+        "type": "tab",
+        "label": "api",
+        "disabled": false,
+        "info": "",
+        "env": []
+    },
+    {
+        "id": "452b0da392bc6e57",
+        "type": "mongodb4-client",
+        "name": "Shared-subflows",
+        "protocol": "mongodb",
+        "hostname": "127.0.0.1",
+        "port": "27017",
+        "dbName": "shared-subflows",
+        "authSource": "",
+        "authMechanism": "DEFAULT",
+        "tls": false,
+        "tlsCAFile": "",
+        "tlsInsecure": false,
+        "uri": "mongodb://localhost:27017",
+        "advanced": "",
+        "uriTabActive": "tab-uri-simple"
+    },
+    {
+        "id": "86b569d8352b9283",
+        "type": "http in",
+        "z": "96926d3472090980",
+        "name": "Get Active Subflows",
+        "url": "/api/activesubflows",
+        "method": "get",
+        "upload": false,
+        "swaggerDoc": "",
+        "x": 190,
+        "y": 340,
+        "wires": [
+            [
+                "9ed31e19b11139a7"
+            ]
+        ]
+    },
+    {
+        "id": "b6a9e00b53b46dab",
+        "type": "http in",
+        "z": "96926d3472090980",
+        "name": "Get subflow",
+        "url": "/api/subflows/:subflowId",
+        "method": "get",
+        "upload": false,
+        "swaggerDoc": "",
+        "x": 170,
+        "y": 440,
+        "wires": [
+            [
+                "d7a507d27ad2a955"
+            ]
+        ]
+    },
+    {
+        "id": "2eba4d0dd99574b9",
+        "type": "http in",
+        "z": "96926d3472090980",
+        "name": "Create subflows",
+        "url": "/api/subflows",
+        "method": "post",
+        "upload": false,
+        "swaggerDoc": "",
+        "x": 180,
+        "y": 540,
+        "wires": [
+            [
+                "5e4e13d2e8919e04"
+            ]
+        ]
+    },
+    {
+        "id": "5e4e13d2e8919e04",
+        "type": "function",
+        "z": "96926d3472090980",
+        "name": "Check for required fields",
+        "func": "let body = msg.req.body\n// json - body.json\nmsg.json = body.json\ndelete body.json\nif (body.app && body.category && body.subflow && body.version && body.hostName && body.changes){\n    msg.payload = {}\n    Object.keys(body).forEach(key => {\n        msg.payload[key] = body[key]\n    })\n    msg.payload.createdAt = (new Date()).toISOString()\n    msg.payload.active = true\n    return [null, msg]\n}\nelse{\n    // //send 400\n    // let message = 'Errors: '\n    // let count = 1\n    // Object.keys(body).forEach(key => {\n    //     if (typeof body[key] === \"undefined\" || body[key] === \"\") {\n    //         message += ` ${count}. \"${key}\" is required `\n    //         count++\n    //     }\n    // })\n    // msg.errorMessage = message\n    return [msg, null]\n}",
+        "outputs": 2,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 450,
+        "y": 540,
+        "wires": [
+            [
+                "161596ad34f3f042"
+            ],
+            [
+                "261a29b65ee83adc"
+            ]
+        ],
+        "outputLabels": [
+            "400",
+            "200"
+        ]
+    },
+    {
+        "id": "d9c86f3c6547ba8f",
+        "type": "mongodb4",
+        "z": "96926d3472090980",
+        "clientNode": "452b0da392bc6e57",
+        "mode": "collection",
+        "collection": "subflows",
+        "operation": "insertOne",
+        "output": "toArray",
+        "handleDocId": true,
+        "name": "Subflows",
+        "x": 720,
+        "y": 680,
+        "wires": [
+            [
+                "ef06eb22d5cc598b"
+            ]
+        ]
+    },
+    {
+        "id": "014bf9f5c7244013",
+        "type": "http response",
+        "z": "96926d3472090980",
+        "name": "",
+        "statusCode": "",
+        "headers": {},
+        "x": 930,
+        "y": 520,
+        "wires": []
+    },
+    {
+        "id": "161596ad34f3f042",
+        "type": "function",
+        "z": "96926d3472090980",
+        "name": "Send 400",
+        "func": "msg.statusCode = 400\nmsg.payload = {\n    status: \"error\",\n    message: `Invalid data.`\n}\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 740,
+        "y": 520,
+        "wires": [
+            [
+                "014bf9f5c7244013"
+            ]
+        ]
+    },
+    {
+        "id": "ef06eb22d5cc598b",
+        "type": "function",
+        "z": "96926d3472090980",
+        "name": "Send 201",
+        "func": "msg.statusCode = 201\nmsg.payload = []\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 740,
+        "y": 720,
+        "wires": [
+            [
+                "014bf9f5c7244013"
+            ]
+        ]
+    },
+    {
+        "id": "5a8f91e907c81f63",
+        "type": "mongodb4",
+        "z": "96926d3472090980",
+        "clientNode": "452b0da392bc6e57",
+        "mode": "collection",
+        "collection": "meta",
+        "operation": "find",
+        "output": "toArray",
+        "handleDocId": true,
+        "name": "",
+        "x": 510,
+        "y": 340,
+        "wires": [
+            [
+                "67a5e5d7885dd2a3"
+            ]
+        ]
+    },
+    {
+        "id": "ad3f2fb7c1992ca4",
+        "type": "http response",
+        "z": "96926d3472090980",
+        "name": "send all",
+        "statusCode": "200",
+        "headers": {},
+        "x": 980,
+        "y": 340,
+        "wires": []
+    },
+    {
+        "id": "261a29b65ee83adc",
+        "type": "mongodb4",
+        "z": "96926d3472090980",
+        "clientNode": "452b0da392bc6e57",
+        "mode": "collection",
+        "collection": "meta",
+        "operation": "insertOne",
+        "output": "toArray",
+        "handleDocId": true,
+        "name": "meta",
+        "x": 690,
+        "y": 600,
+        "wires": [
+            [
+                "ee600ec1c431eb5b"
+            ]
+        ]
+    },
+    {
+        "id": "ee600ec1c431eb5b",
+        "type": "function",
+        "z": "96926d3472090980",
+        "name": "data for subflow",
+        "func": "let payload = msg.payload\nmsg.payload = {\n    subflowId: payload.insertedId.toString(),\n    subflow: msg.json\n}\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 720,
+        "y": 640,
+        "wires": [
+            [
+                "d9c86f3c6547ba8f"
+            ]
+        ]
+    },
+    {
+        "id": "852687cfe4e494e4",
+        "type": "mongodb4",
+        "z": "96926d3472090980",
+        "clientNode": "452b0da392bc6e57",
+        "mode": "collection",
+        "collection": "subflows",
+        "operation": "find",
+        "output": "toArray",
+        "handleDocId": true,
+        "name": "",
+        "x": 570,
+        "y": 440,
+        "wires": [
+            [
+                "c7e4ac9280b6b7ab"
+            ]
+        ]
+    },
+    {
+        "id": "d7a507d27ad2a955",
+        "type": "function",
+        "z": "96926d3472090980",
+        "name": "Query for mongo",
+        "func": "msg.payload = [{ subflowId: msg.req.params.subflowId}]\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 370,
+        "y": 440,
+        "wires": [
+            [
+                "852687cfe4e494e4"
+            ]
+        ]
+    },
+    {
+        "id": "ac933f843fc51f86",
+        "type": "http response",
+        "z": "96926d3472090980",
+        "name": "send",
+        "statusCode": "200",
+        "headers": {},
+        "x": 950,
+        "y": 440,
+        "wires": []
+    },
+    {
+        "id": "67a5e5d7885dd2a3",
+        "type": "function",
+        "z": "96926d3472090980",
+        "name": "Format data",
+        "func": "let payload = msg.payload\nmsg.payload = {}\npayload.forEach( item => {\n    if (Object.keys(msg.payload).includes(item.app)) {\n        if (Object.keys(msg.payload[item.app]).includes(item.category)) {\n            if (Object.keys(msg.payload[item.app][item.category]).includes(item.subflow)) {\n                msg.payload[item.app][item.category][item.subflow].push({\n                    version: item.version,\n                    subflowId: item._id,\n                    hostName: item.hostName,\n                    changes: item.changes,\n                    createdAt: item.createdAt,\n                    active: item.active\n                })\n            }\n            else {\n                msg.payload[item.app][item.category][item.subflow] = []\n                msg.payload[item.app][item.category][item.subflow][0] = {\n                    version: item.version,\n                    subflowId: item._id,\n                    hostName: item.hostName,\n                    changes: item.changes,\n                    createdAt: item.createdAt,\n                    active: item.active\n                }\n            }\n        }\n        else {\n            msg.payload[item.app][item.category] = {}\n            msg.payload[item.app][item.category][item.subflow] = []\n            msg.payload[item.app][item.category][item.subflow][0] = {\n                version: item.version,\n                subflowId: item._id,\n                hostName: item.hostName,\n                changes: item.changes,\n                createdAt: item.createdAt,\n                active: item.active\n            }\n        }\n    }\n    else {\n        msg.payload[item.app] = {}\n        msg.payload[item.app][item.category] = {}\n        msg.payload[item.app][item.category][item.subflow] = []\n        msg.payload[item.app][item.category][item.subflow][0] = {\n            version: item.version,\n            subflowId: item._id,\n            hostName: item.hostName,\n            changes: item.changes,\n            createdAt: item.createdAt,\n            active: item.active\n        }\n    }\n\n});\n\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 710,
+        "y": 340,
+        "wires": [
+            [
+                "ad3f2fb7c1992ca4"
+            ]
+        ]
+    },
+    {
+        "id": "3c718d6055124f8c",
+        "type": "catch",
+        "z": "96926d3472090980",
+        "name": "",
+        "scope": null,
+        "uncaught": false,
+        "x": 160,
+        "y": 880,
+        "wires": [
+            [
+                "843a7fbb2f05babb",
+                "f7c38918cf3c62aa"
+            ]
+        ]
+    },
+    {
+        "id": "843a7fbb2f05babb",
+        "type": "http response",
+        "z": "96926d3472090980",
+        "name": "send",
+        "statusCode": "500",
+        "headers": {},
+        "x": 390,
+        "y": 880,
+        "wires": []
+    },
+    {
+        "id": "f7c38918cf3c62aa",
+        "type": "debug",
+        "z": "96926d3472090980",
+        "name": "debug 1",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "false",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 320,
+        "y": 840,
+        "wires": []
+    },
+    {
+        "id": "74dc7c253f585387",
+        "type": "http in",
+        "z": "96926d3472090980",
+        "name": "health",
+        "url": "/api/health",
+        "method": "get",
+        "upload": false,
+        "swaggerDoc": "",
+        "x": 150,
+        "y": 180,
+        "wires": [
+            [
+                "372174a494c979ea"
+            ]
+        ]
+    },
+    {
+        "id": "a759ca9ce7d9b226",
+        "type": "http response",
+        "z": "96926d3472090980",
+        "name": "send all",
+        "statusCode": "200",
+        "headers": {},
+        "x": 900,
+        "y": 180,
+        "wires": []
+    },
+    {
+        "id": "372174a494c979ea",
+        "type": "function",
+        "z": "96926d3472090980",
+        "name": "Set payload",
+        "func": "msg.payload = {\n    status: \"Success\"\n}\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 510,
+        "y": 180,
+        "wires": [
+            [
+                "a759ca9ce7d9b226"
+            ]
+        ]
+    },
+    {
+        "id": "9ed31e19b11139a7",
+        "type": "function",
+        "z": "96926d3472090980",
+        "name": "active",
+        "func": "msg.payload = [{ active: { $eq: true }}]\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 370,
+        "y": 340,
+        "wires": [
+            [
+                "5a8f91e907c81f63"
+            ]
+        ]
+    },
+    {
+        "id": "cfd275a31e02d3c8",
+        "type": "http in",
+        "z": "96926d3472090980",
+        "name": "Get Meta data",
+        "url": "/api/meta",
+        "method": "get",
+        "upload": false,
+        "swaggerDoc": "",
+        "x": 170,
+        "y": 260,
+        "wires": [
+            [
+                "45e0dcb474f84346"
+            ]
+        ]
+    },
+    {
+        "id": "45e0dcb474f84346",
+        "type": "mongodb4",
+        "z": "96926d3472090980",
+        "clientNode": "452b0da392bc6e57",
+        "mode": "collection",
+        "collection": "meta",
+        "operation": "find",
+        "output": "toArray",
+        "handleDocId": true,
+        "name": "",
+        "x": 430,
+        "y": 260,
+        "wires": [
+            [
+                "c30f011e4cc289c7"
+            ]
+        ]
+    },
+    {
+        "id": "3b7d6325f2c1655e",
+        "type": "http response",
+        "z": "96926d3472090980",
+        "name": "send all",
+        "statusCode": "200",
+        "headers": {},
+        "x": 920,
+        "y": 260,
+        "wires": []
+    },
+    {
+        "id": "c30f011e4cc289c7",
+        "type": "function",
+        "z": "96926d3472090980",
+        "name": "Format data",
+        "func": "let payload = msg.payload\nmsg.payload = {}\npayload.forEach( item => {\n    if (Object.keys(msg.payload).includes(item.app)) {\n        if (Object.keys(msg.payload[item.app]).includes(item.category)) {\n            if (Object.keys(msg.payload[item.app][item.category]).includes(item.subflow)) {\n                msg.payload[item.app][item.category][item.subflow].push({\n                    version: item.version,\n                    subflowId: item._id,\n                    hostName: item.hostName,\n                    changes: item.changes,\n                    createdAt: item.createdAt,\n                    active: item.active\n                })\n            }\n            else {\n                msg.payload[item.app][item.category][item.subflow] = []\n                msg.payload[item.app][item.category][item.subflow][0] = {\n                    version: item.version,\n                    subflowId: item._id,\n                    hostName: item.hostName,\n                    changes: item.changes,\n                    createdAt: item.createdAt,\n                    active: item.active\n                }\n            }\n        }\n        else {\n            msg.payload[item.app][item.category] = {}\n            msg.payload[item.app][item.category][item.subflow] = []\n            msg.payload[item.app][item.category][item.subflow][0] = {\n                version: item.version,\n                subflowId: item._id,\n                hostName: item.hostName,\n                changes: item.changes,\n                createdAt: item.createdAt,\n                active: item.active\n            }\n        }\n    }\n    else {\n        msg.payload[item.app] = {}\n        msg.payload[item.app][item.category] = {}\n        msg.payload[item.app][item.category][item.subflow] = []\n        msg.payload[item.app][item.category][item.subflow][0] = {\n            version: item.version,\n            subflowId: item._id,\n            hostName: item.hostName,\n            changes: item.changes,\n            createdAt: item.createdAt,\n            active: item.active\n        }\n    }\n\n});\n\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 650,
+        "y": 260,
+        "wires": [
+            [
+                "3b7d6325f2c1655e"
+            ]
+        ]
+    },
+    {
+        "id": "495bcd6b830a5c7c",
+        "type": "comment",
+        "z": "96926d3472090980",
+        "name": "Active Meta data",
+        "info": "",
+        "x": 180,
+        "y": 320,
+        "wires": []
+    },
+    {
+        "id": "c7e4ac9280b6b7ab",
+        "type": "function",
+        "z": "96926d3472090980",
+        "name": "Format data",
+        "func": "let payload = msg.payload\nif (payload[0]){\n    msg.payload = payload[0]\n}\nelse{\n    msg.statusCode = 400\n    msg.payload = {\n        status: \"error\",\n        message: `No Subflow exists.`\n    }\n}\n\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 770,
+        "y": 440,
+        "wires": [
+            [
+                "ac933f843fc51f86"
+            ]
+        ]
+    },
+    {
+        "id": "4dbf9bcf5c93b1b3",
+        "type": "comment",
+        "z": "96926d3472090980",
+        "name": "Authentication Not Implemented",
+        "info": "",
+        "x": 230,
+        "y": 40,
+        "wires": []
+    },
+    {
+        "id": "d42b0d2aa2617c05",
+        "type": "comment",
+        "z": "96926d3472090980",
+        "name": "install \"node-red-contrib-mongodb4\" from manage palette",
+        "info": "",
+        "x": 310,
+        "y": 80,
+        "wires": []
+    },
+    {
+        "id": "e0d197a743d06a28",
+        "type": "comment",
+        "z": "96926d3472090980",
+        "name": "install mongo db community https://www.mongodb.com/try/download/community",
+        "info": "",
+        "x": 380,
+        "y": 120,
+        "wires": []
+    }
+]

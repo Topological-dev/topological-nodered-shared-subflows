@@ -1,0 +1,186 @@
+openapi: 3.0.3
+info:
+  title: topological-nodered-shared-subflows-api
+  description: Api code for Read and Save subflow data to a database/files/more... based on project need. Since it exports data as JSON it is good approach to choose a NOSQL DB like Mongo.
+  version: 0.1.0
+paths:
+  /health:
+    description: Health Resource
+    get:
+      description: Get the health of the server.
+      responses:
+        200:
+          description: OK
+          content:
+            application/json:
+              schema: 
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: Success
+        500:
+          description: Unexpected error
+          
+  /meta:
+    description: Fetch Meta data
+    get:
+      description: Get the subflow meta data. Data must be formated as follow from stored datastore
+      responses:
+        200:
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/meta'
+                
+  /activesubflows:
+    description: Fetch Active Meta data
+    get:
+      description: Get the active subflow meta data. Data must be formated as follow from stored datastore
+      responses:
+        200:
+          description: OK
+          content:
+            application/json:
+              schema:
+                 $ref: '#/components/schemas/meta'
+                
+  /subflows/{subflowId}:
+    description: Get the subflow
+    get:
+      description: Get the active subflow meta data. Data must be formated as follow from stored datastore
+      parameters: 
+        - name: subflowId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: OK
+          content:
+            application/json:
+              schema:
+                properties:
+                  _id:
+                    type: string
+                  subflowId:
+                    type: string
+                  subflow:
+                    type: string
+                    example: JSON object
+                
+  /subflows:
+    description: Create subflow record.
+    post:
+      description: Create a new record in database which is unquie as version should be always new
+      requestBody:
+        description: Optional description in *Markdown*
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/subflow'
+      responses:
+        400:
+          description: Bad Request
+          content:
+            application/json:
+              schema: 
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: error
+                  message:
+                    type: string
+                    example: Invalid data.
+        201:
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: array
+                example: []
+                items:
+                  type: object
+  
+components:
+  schemas:
+    meta:
+      type: object
+      properties:
+        appName:
+          type: object
+          description: app name is dynamic values which is the app name that we enter from UI.
+          allOf:
+            - $ref: '#/components/schemas/app'
+            
+    app:
+      type: object
+      properties:
+        categoryName:
+          type: object
+          description: category name is dynamic values which is the category name that we enter from UI.
+          allOf: 
+            - $ref: '#/components/schemas/category'
+    
+    category:
+      type: object
+      properties:
+        subflowName:
+          type: array
+          description: subflow name is dynamic values which is the subflow name that is exported.
+          items:
+            properties:
+              version:
+                type: string
+                example: 0.1.0
+              subflowId:
+                type: string
+                example: 641a4f041075c40ac499e248
+              changes:
+                type: string
+              hostName:
+                type: string
+              createdAt:
+                type: string
+                example: 2023-03-22T00:42:44.213Z
+              active:
+                type: boolean
+                example: true
+     
+    subflow:
+      type: object
+      properties:
+        app:
+          type: string
+          example: "application name"
+        category:
+          type: string
+          example: "category name"
+        subflow:
+          type: string
+          example: "Subflow name"
+        version:
+          type: string
+          example: "0.1.0"
+        hostName:
+          type: string
+          example: "host name or user name"
+        json:
+          type: string
+          example: "subflow json string"
+        changes:
+          type: string
+          example: "sample notes for changes"
+      required:
+        - app
+        - category
+        - subflow
+        - version
+        - hostName
+        - json
+        - changes
+     

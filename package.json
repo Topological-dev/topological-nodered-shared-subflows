@@ -1,10 +1,12 @@
 {
   "name": "topological-nodered-shared-subflows",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "node-red side tab to share subflow for teams to collaborate and version control.",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
+  "url" : "https://github.com/Topological-dev/topological-nodered-shared-subflows/issues",
+  "email" : "chandrakanth.chintada@topological.dev",
   "author": "chandrakanth chintada",
   "license": "ISC",
   "repository": {

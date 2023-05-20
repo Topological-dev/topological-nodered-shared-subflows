@@ -12,7 +12,7 @@ Before you install this package, do the following steps for better understanding
 
 Now we can see a side tab in node-red and set the BaseURL to `http://localhost:1880/api`. A successful connection message will be displayed if everything is working together as shown below.
 
-![example](./resources/imgs/example1.png)
+![example](https://raw.githubusercontent.com/Topological-dev/topological-nodered-shared-subflows/master/resources/imgs/example1.png)
 
 We tried to add validations from the UI to avoid data related errors.
 
